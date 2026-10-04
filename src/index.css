@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-style: var(--border-style);
+  }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+  body {
+    @apply bg-canvas text-text-primary font-sans antialiased;
+    background-image: var(--effect-canvas-image);
+    background-attachment: fixed;
+    background-size: cover;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: var(--focus-width) solid rgb(var(--color-accent));
+    outline-offset: var(--focus-offset);
+  }
+}
+
+@layer components {
+  .surface {
+    @apply bg-surface border border-border;
+    backdrop-filter: var(--effect-surface-backdrop);
+  }
+  .card {
+    @apply surface rounded-card shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary shadow-control transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn:active:not(:disabled) {
+    box-shadow: var(--shadow-inset);
+  }
+  .btn-primary {
+    @apply border-transparent bg-accent text-accent-foreground hover:bg-accent-hover;
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent shadow-none hover:bg-surface-hover;
+  }
+  .btn-icon {
+    @apply btn btn-ghost h-9 w-9 p-0;
+  }
+  .input {
+    @apply w-full rounded-control border border-border bg-canvas px-3 py-2 text-sm text-text-primary shadow-inset placeholder:text-text-muted;
+  }
+  .label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-pill border border-border px-2 py-0.5 text-xs font-medium text-text-secondary;
+  }
+  .display {
+    @apply font-display tracking-wide;
+  }
+}
+
+/* Cards are physical objects: a 3D flip needs both faces stacked. */
+.flip {
+  transform-style: preserve-3d;
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+.felt {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgb(var(--color-accent) / 0.08), transparent 65%),
+    radial-gradient(ellipse at 50% 120%, rgb(var(--color-accent) / 0.06), transparent 60%);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
