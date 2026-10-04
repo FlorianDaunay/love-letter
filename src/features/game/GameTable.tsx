@@ -15,6 +15,7 @@ import { playerName, seatColor } from "./names";
 import { RoundModal } from "./RoundModal";
 import { DiscardFan, FavorRow, Seat } from "./Seat";
 import { SidePanel } from "./SidePanel";
+import { SpeedPicker } from "./SpeedPicker";
 
 interface Selection {
   uid: number | null;
@@ -83,14 +84,15 @@ export function GameTable({ view }: { view: SessionView }) {
   const showRound = stageIdle && (game.phase === "roundEnd" || game.phase === "gameOver") && !!game.lastRound;
 
   return (
-    <div className="felt relative flex flex-1 gap-3 p-2 sm:p-3 lg:p-4">
-      <div className="relative flex min-w-0 flex-1 flex-col gap-3">
+    <div className="felt relative flex h-[100dvh] min-h-0 gap-3 overflow-hidden p-2 sm:h-[calc(100dvh-3.5rem)] sm:p-3 lg:p-4">
+      <div className="scrollbar-thin relative flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
         {/* top bar */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="display text-xl font-semibold sm:text-2xl">{t("game.round", { n: game.round })}</span>
           <span className="badge hidden sm:inline-flex">{t("lobby.tokens", { n: game.tokensToWin })}</span>
           {!view.offline && <span className="badge font-mono">{room.code}</span>}
           <div className="ml-auto flex items-center gap-1">
+            <SpeedPicker compact />
             <button className="btn-icon sm:hidden" onClick={() => setSound(!sound)} aria-label={t("settings.sound")}>
               {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>

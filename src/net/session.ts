@@ -81,6 +81,8 @@ export class Session {
   private graceUntil = 0;
   private passwordHash: string | null = null;
   private busy = false;
+  /** Bots' thinking time; the host's speed setting drives it. */
+  botDelayMs = BOT_DELAY_MS;
 
   private constructor(private profile: Profile) {
     this.myId = profile.playerId;
@@ -451,7 +453,7 @@ export class Session {
     const player = game.players.find((p) => p.id === game.current);
     if (!player) return;
     let due: boolean;
-    if (player.isBot) due = now - game.updatedAt >= BOT_DELAY_MS;
+    if (player.isBot) due = now - game.updatedAt >= this.botDelayMs;
     else if (seat && !seat.connected && player.id !== this.myId) {
       const since = Math.max(game.updatedAt, this.disconnectedAt.get(player.id) ?? 0);
       due = now - since >= AUTOPILOT_DELAY_MS;

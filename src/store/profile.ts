@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { readJson, writeJson } from "./storage";
 
 export type Lang = "fr" | "en";
+export type Speed = "slow" | "normal" | "fast";
 
 /**
  * The player id lives in sessionStorage: it survives a reload (to reclaim a seat) but two tabs
@@ -23,11 +24,13 @@ interface ProfileState {
   sound: boolean;
   volume: number;
   reducedMotion: boolean;
+  speed: Speed;
   setName: (name: string) => void;
   setLang: (lang: Lang) => void;
   setSound: (on: boolean) => void;
   setVolume: (v: number) => void;
   setReducedMotion: (on: boolean) => void;
+  setSpeed: (speed: Speed) => void;
 }
 
 const defaultLang: Lang = (globalThis.navigator?.language ?? "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
@@ -41,16 +44,18 @@ export const useProfile = create<ProfileState>()(
       sound: true,
       volume: 0.7,
       reducedMotion: false,
+      speed: "normal",
       setName: (name) => set({ name: name.slice(0, 24) }),
       setLang: (lang) => set({ lang }),
       setSound: (sound) => set({ sound }),
       setVolume: (volume) => set({ volume: Math.min(1, Math.max(0, volume)) }),
       setReducedMotion: (reducedMotion) => set({ reducedMotion }),
+      setSpeed: (speed) => set({ speed }),
     }),
     {
       name: "love-letter-profile",
       version: 1,
-      partialize: ({ name, lang, sound, volume, reducedMotion }) => ({ name, lang, sound, volume, reducedMotion }),
+      partialize: ({ name, lang, sound, volume, reducedMotion, speed }) => ({ name, lang, sound, volume, reducedMotion, speed }),
     }
   )
 );

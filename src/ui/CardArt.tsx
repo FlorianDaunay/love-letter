@@ -171,7 +171,7 @@ export function CardFace({ kind, detailed = false }: { kind: CardKind; detailed?
       {/* value medallion */}
       <circle cx="44" cy="46" r="26" fill={c} stroke={GOLD} strokeWidth="3" />
       <circle cx="44" cy="46" r="21" fill="none" stroke={GOLD_LIGHT} strokeWidth="1" />
-      <text x="44" y="57" textAnchor="middle" fontFamily="'Cormorant Garamond', Georgia, serif" fontWeight="700" fontSize="32" fill="#FFF8E7">
+      <text x="44" y="56" textAnchor="middle" fontFamily="Cinzel, 'Times New Roman', serif" fontWeight="700" fontSize="28" fill="#FFF8E7" style={{ fontVariantNumeric: "lining-nums" }}>
         {value}
       </text>
       {/* name banner */}

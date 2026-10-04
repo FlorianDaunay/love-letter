@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { playSound } from "@/audio/sound";
+import { SpeedPicker } from "@/features/game/SpeedPicker";
 import { themes, themeToStyle, useActiveTheme, useThemeStore } from "@/themes";
 import { useT } from "@/i18n";
 import { useProfile, type Lang } from "@/store/profile";
@@ -50,6 +51,10 @@ export function SettingsPage() {
               className="w-40 accent-[rgb(var(--color-accent))]"
             />
           </label>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium">{t("settings.speed")}</span>
+            <SpeedPicker />
+          </div>
           <label className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium">{t("settings.motion")}</span>
             <input type="checkbox" className="h-5 w-5 accent-[rgb(var(--color-accent))]" checked={profile.reducedMotion} onChange={(e) => profile.setReducedMotion(e.target.checked)} />

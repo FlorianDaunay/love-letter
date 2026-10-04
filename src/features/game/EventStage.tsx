@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { playSound } from "@/audio/sound";
+import { useProfile } from "@/store/profile";
+import { NO_EFFECT_STAGE_MS, PLAY_STAGE_MS, ROUND_STAGE_MS, SPEED_FACTOR } from "./pace";
 import type { GameEvent } from "@/core/game";
 import type { RoomSnapshot } from "@/net/protocol";
 import { useT, type Translate } from "@/i18n";
@@ -9,7 +11,7 @@ import { playerName } from "./names";
 
 type PlayEvent = Extract<GameEvent, { type: "play" }>;
 
-const DURATION: Partial<Record<GameEvent["type"], number>> = { play: 2300, roundStart: 1300 };
+const DURATION: Partial<Record<GameEvent["type"], number>> = { play: PLAY_STAGE_MS, roundStart: ROUND_STAGE_MS };
 
 /**
  * Stages each new game event in the middle of the table, one after the other, with its sound.
@@ -22,6 +24,7 @@ export function EventStage({ room, myId, onIdle }: { room: RoomSnapshot; myId: s
   const lastSeq = useRef(game.seq);
   const [queue, setQueue] = useState<GameEvent[]>([]);
   const [current, setCurrent] = useState<GameEvent | null>(null);
+  const k = SPEED_FACTOR[useProfile((s) => s.speed)];
 
   // Remember what was already shown on mount (no replay), but never swallow a new event.
   useEffect(() => {
@@ -36,28 +39,28 @@ export function EventStage({ room, myId, onIdle }: { room: RoomSnapshot; myId: s
     if (current || queue.length === 0) return;
     const [next, ...rest] = queue;
     setQueue(rest);
-    soundFor(next, myId);
+    soundFor(next, myId, k);
     if (DURATION[next.type]) setCurrent(next); // others are sound only
-  }, [queue, current, myId, onIdle]);
+  }, [queue, current, myId, onIdle, k]);
 
   useEffect(() => {
     if (!current) return;
-    const duration = current.type === "play" && current.noEffect ? 1500 : DURATION[current.type]!;
-    const timer = setTimeout(() => setCurrent(null), duration);
+    const duration = current.type === "play" && current.noEffect ? NO_EFFECT_STAGE_MS : DURATION[current.type]!;
+    const timer = setTimeout(() => setCurrent(null), duration * k);
     return () => clearTimeout(timer);
-  }, [current]);
+  }, [current, k]);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
       <AnimatePresence mode="wait">
-        {current?.type === "play" && <PlayStage key={current.seq} event={current} room={room} myId={myId} t={t} />}
+        {current?.type === "play" && <PlayStage key={current.seq} event={current} room={room} myId={myId} t={t} k={k} />}
         {current?.type === "roundStart" && (
           <motion.div
             key={current.seq}
             initial={{ opacity: 0, scale: 0.9, letterSpacing: "0.5em" }}
             animate={{ opacity: 1, scale: 1, letterSpacing: "0.1em" }}
             exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.6 * k }}
             className="display rounded-card bg-canvas/85 px-10 py-5 text-4xl font-semibold shadow-overlay backdrop-blur sm:text-5xl"
           >
             {t("game.round", { n: current.round })}
@@ -68,7 +71,7 @@ export function EventStage({ room, myId, onIdle }: { room: RoomSnapshot; myId: s
   );
 }
 
-function PlayStage({ event, room, myId, t }: { event: PlayEvent; room: RoomSnapshot; myId: string; t: Translate }) {
+function PlayStage({ event, room, myId, t, k }: { event: PlayEvent; room: RoomSnapshot; myId: string; t: Translate; k: number }) {
   const name = (id?: string) => (id ? playerName(room, id) : "");
   const headline = t(event.target ? "log.playOn" : "log.play", {
     actor: name(event.actor),
@@ -118,7 +121,7 @@ function PlayStage({ event, room, myId, t }: { event: PlayEvent; room: RoomSnaps
       className="mx-4 flex max-w-xl flex-col items-center gap-3 rounded-card bg-canvas/90 px-5 py-4 text-center shadow-overlay backdrop-blur"
     >
       <div className="flex items-end gap-3">
-        <motion.div initial={{ rotateY: 180, y: -30 }} animate={{ rotateY: 0, y: 0 }} transition={{ duration: 0.5 }}>
+        <motion.div initial={{ rotateY: 180, y: -30 }} animate={{ rotateY: 0, y: 0 }} transition={{ duration: 0.5 * k }}>
           <Card kind={event.card.kind} size="lg" />
         </motion.div>
         {extra.map((x, i) => (
@@ -127,11 +130,11 @@ function PlayStage({ event, room, myId, t }: { event: PlayEvent; room: RoomSnaps
             className="flex flex-col items-center gap-1"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.45 + i * 0.25 }}
+            transition={{ delay: (0.45 + i * 0.25) * k }}
           >
             <motion.div
               animate={x.key.startsWith("b-") && event.eliminated && x.label === name(event.eliminated) ? { rotate: [0, -4, 4, -2, 0], opacity: [1, 1, 0.6] } : {}}
-              transition={{ delay: 1.1, duration: 0.6 }}
+              transition={{ delay: 1.1 * k, duration: 0.6 }}
             >
               <Card kind={x.kind as never} size="md" />
             </motion.div>
@@ -144,7 +147,7 @@ function PlayStage({ event, room, myId, t }: { event: PlayEvent; room: RoomSnaps
         <motion.p
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.7 }}
+          transition={{ delay: 0.7 * k }}
           className={`text-sm font-semibold sm:text-base ${tone === "danger" ? "text-danger" : tone === "success" ? "text-success" : "text-text-secondary"}`}
         >
           {outcome}
@@ -154,35 +157,35 @@ function PlayStage({ event, room, myId, t }: { event: PlayEvent; room: RoomSnaps
   );
 }
 
-function soundFor(event: GameEvent, myId: string) {
+function soundFor(event: GameEvent, myId: string, k: number) {
   switch (event.type) {
     case "roundStart":
       return playSound("shuffle");
     case "chancellorDone":
       return playSound("draw");
     case "roundEnd":
-      return playSound("roundWin", 0.3);
+      return playSound("roundWin", 0.3 * k);
     case "gameOver":
-      return playSound("gameWin", 0.3);
+      return playSound("gameWin", 0.3 * k);
     case "play": {
       playSound("play");
       const kind = event.card.kind;
       if (event.noEffect) return;
       if (kind === "guard") playSound(event.eliminated ? "eliminate" : "miss", 0.7);
-      else if (kind === "priest") playSound("reveal", 0.5);
+      else if (kind === "priest") playSound("reveal", 0.5 * k);
       else if (kind === "baron") {
-        playSound("reveal", 0.45);
-        if (event.eliminated) playSound("eliminate", 1.1);
-      } else if (kind === "handmaid") playSound("protect", 0.2);
+        playSound("reveal", 0.45 * k);
+        if (event.eliminated) playSound("eliminate", 1.1 * k);
+      } else if (kind === "handmaid") playSound("protect", 0.2 * k);
       else if (kind === "prince") {
-        playSound("draw", 0.5);
-        if (event.eliminated) playSound("eliminate", 0.8);
+        playSound("draw", 0.5 * k);
+        if (event.eliminated) playSound("eliminate", 0.8 * k);
       } else if (kind === "chancellor") {
-        playSound("draw", 0.3);
-        playSound("draw", 0.5);
-      } else if (kind === "king") playSound("swap", 0.35);
-      else if (kind === "princess") playSound("eliminate", 0.4);
-      if (event.actor === myId && kind === "priest") playSound("reveal", 0.9);
+        playSound("draw", 0.3 * k);
+        playSound("draw", 0.5 * k);
+      } else if (kind === "king") playSound("swap", 0.35 * k);
+      else if (kind === "princess") playSound("eliminate", 0.4 * k);
+      if (event.actor === myId && kind === "priest") playSound("reveal", 0.9 * k);
     }
   }
 }

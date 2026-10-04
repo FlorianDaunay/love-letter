@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { GameAction, GameState } from "@/core/game";
 import { Session, type SessionView } from "@/net/session";
+import { botDelayFor } from "@/features/game/pace";
 import { useProfile } from "./profile";
 import { useSaves } from "./saves";
 
@@ -32,8 +33,14 @@ function attach(session: Session) {
     }),
     session.onError((key) => useSessionStore.setState((s) => ({ error: { key, n: (s.error?.n ?? 0) + 1 } }))),
   ];
+  session.botDelayMs = botDelayFor(useProfile.getState().speed);
   useSessionStore.setState({ session, view: session.view(), error: null });
 }
+
+useProfile.subscribe((s) => {
+  const session = useSessionStore.getState().session;
+  if (session) session.botDelayMs = botDelayFor(s.speed);
+});
 
 const profile = () => {
   const { playerId, name } = useProfile.getState();
