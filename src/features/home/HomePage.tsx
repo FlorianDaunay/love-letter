@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Bot, LogIn, Minus, Plus, Users } from "lucide-react";
+import { Bot, LogIn, Minus, Plus, Presentation, Users } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { playSound } from "@/audio/sound";
@@ -31,13 +31,14 @@ export function HomePage() {
   const joinRoom = useSessionStore((s) => s.joinRoom);
   const [bots, setBots] = useState(2);
   const [password, setPassword] = useState("");
+  const [screenPassword, setScreenPassword] = useState("");
   const [code, setCode] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const guard = async (what: string, fn: () => Promise<void>) => {
-    if (!name.trim()) return setError("home.needName");
+  const guard = async (what: string, fn: () => Promise<void>, needName = true) => {
+    if (needName && !name.trim()) return setError("home.needName");
     setError(null);
     setBusy(what);
     playSound("click");
@@ -64,6 +65,17 @@ export function HomePage() {
       await hostRoom({ password });
       navigate(`/room/${useSessionStore.getState().session!.room!.code}`);
     });
+
+  // The shared screen has no seat, hence no name.
+  const screen = () =>
+    guard(
+      "screen",
+      async () => {
+        await hostRoom({ password: screenPassword, spectator: true });
+        navigate(`/screen/${useSessionStore.getState().session!.room!.code}`);
+      },
+      false
+    );
 
   const join = (e: FormEvent) => {
     e.preventDefault();
@@ -100,7 +112,7 @@ export function HomePage() {
         <HeroCards />
       </div>
 
-      <div className="mt-10 grid gap-4 md:grid-cols-3">
+      <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Panel icon={<Bot size={20} />} title={t("home.solo")} hint={t("home.soloHint")}>
           <div className="flex items-center justify-between">
             <span className="label mb-0">{t("home.bots")}</span>
@@ -140,6 +152,13 @@ export function HomePage() {
               {busy === "join" ? t("home.connecting") : t("home.join")}
             </button>
           </form>
+        </Panel>
+
+        <Panel icon={<Presentation size={20} />} title={t("projector.title")} hint={t("projector.hint")}>
+          <input className="input" type="password" autoComplete="new-password" placeholder={t("home.password")} value={screenPassword} onChange={(e) => setScreenPassword(e.target.value)} />
+          <button className="btn btn-primary mt-auto" onClick={screen} disabled={!!busy}>
+            {busy === "screen" ? t("home.connecting") : t("projector.create")}
+          </button>
         </Panel>
       </div>
     </div>

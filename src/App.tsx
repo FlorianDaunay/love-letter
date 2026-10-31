@@ -18,6 +18,8 @@ function Header() {
   const { sound, setSound } = useProfile();
   const location = useLocation();
   const inGame = location.pathname.startsWith("/room");
+  // The shared screen uses all of it.
+  if (location.pathname.startsWith("/screen")) return null;
   return (
     <header className={`sticky top-0 z-30 border-b border-border bg-canvas/80 backdrop-blur ${inGame ? "hidden sm:block" : ""}`}>
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
@@ -65,6 +67,7 @@ export function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/room/:code" element={<RoomPage />} />
               <Route path="/join/:code" element={<RoomPage />} />
+              <Route path="/screen/:code" element={<RoomPage screen />} />
               <Route path="/rules" element={<RulesPage />} />
               <Route path="/saves" element={<SavesPage />} />
               <Route path="/settings" element={<SettingsPage />} />

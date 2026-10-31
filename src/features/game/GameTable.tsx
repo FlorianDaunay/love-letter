@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { LogOut, PanelRight, Shield, Volume2, VolumeX, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { LogOut, Minimize2, PanelRight, Shield, Volume2, VolumeX } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { playSound } from "@/audio/sound";
-import { CARDS, GUARD_GUESSES, mustPlayCountess, playableCards, validTargets, type CardKind, type GameState } from "@/core/game";
+import { GUARD_GUESSES, mustPlayCountess, type CardKind, type GameState } from "@/core/game";
 import type { SessionView } from "@/net/session";
 import { useT } from "@/i18n";
 import { useProfile } from "@/store/profile";
@@ -14,17 +13,12 @@ import { EventStage } from "./EventStage";
 import { playerName, seatColor } from "./names";
 import { RoundModal } from "./RoundModal";
 import { DiscardFan, FavorRow, Seat } from "./Seat";
-import { SidePanel } from "./SidePanel";
+import { PanelDrawer, SidePanel } from "./SidePanel";
 import { SpeedPicker } from "./SpeedPicker";
+import { usePlay } from "./usePlay";
 
-interface Selection {
-  uid: number | null;
-  target: string | null;
-  guess: CardKind | null;
-}
-const EMPTY: Selection = { uid: null, target: null, guess: null };
-
-export function GameTable({ view }: { view: SessionView }) {
+/** `onCompact`: in a projector room, switches back to the compact view. */
+export function GameTable({ view, onCompact }: { view: SessionView; onCompact?: () => void }) {
   const t = useT();
   const navigate = useNavigate();
   const room = view.room!;
@@ -34,48 +28,18 @@ export function GameTable({ view }: { view: SessionView }) {
   const dispatch = useSessionStore((s) => s.dispatch);
   const leave = useSessionStore((s) => s.leave);
   const { sound, setSound } = useProfile();
-  const [sel, setSel] = useState<Selection>(EMPTY);
   const [stageIdle, setStageIdle] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
 
-  const me = game.players.find((p) => p.id === myId);
+  const { me, myTurn, playable, sel, selected, needsTarget, noTarget, needsGuess, ready, pick, chooseTarget, canTarget, guess, play, cancel } = usePlay(game, myId);
   const myIndex = Math.max(0, game.players.findIndex((p) => p.id === myId));
   // Opponents clockwise from my left.
   const opponents = useMemo(
     () => [...game.players.slice(myIndex + 1), ...game.players.slice(0, myIndex)].filter((p) => p.id !== myId),
     [game.players, myIndex, myId]
   );
-  const myTurn = game.phase === "turn" && game.current === myId;
-  const playable = playableCards(game, myId);
-  const selected = me?.hand.find((c) => c.uid === sel.uid) ?? null;
-  const targets = selected ? validTargets(game, myId, selected.kind) : [];
-  const needsTarget = !!selected && CARDS[selected.kind].targets !== "none" && targets.length > 0;
-  const needsGuess = selected?.kind === "guard" && !!sel.target;
-  const ready = !!selected && (!needsTarget || !!sel.target) && (!needsGuess || !!sel.guess);
   const away = (id: string) => room.lobby.some((p) => p.id === id && !p.isBot && !p.connected);
 
-  // A new state invalidates a half-made choice.
-  useEffect(() => setSel(EMPTY), [game.seq, game.current, game.phase]);
-
-  useEffect(() => {
-    if (myTurn) playSound("turn", 0.2);
-  }, [myTurn, game.round]);
-
-  const pick = (uid: number) => {
-    if (!myTurn || !playable.some((c) => c.uid === uid)) return;
-    playSound("click");
-    setSel(sel.uid === uid ? EMPTY : { uid, target: null, guess: null });
-  };
-  const chooseTarget = (id: string) => {
-    if (!needsTarget || !targets.includes(id)) return;
-    playSound("click");
-    setSel({ ...sel, target: id, guess: null });
-  };
-  const play = () => {
-    if (!ready || !selected) return;
-    dispatch({ type: "play", uid: selected.uid, target: sel.target ?? undefined, guess: sel.guess ?? undefined });
-    setSel(EMPTY);
-  };
   const quit = () => {
     leave();
     navigate("/");
@@ -93,6 +57,11 @@ export function GameTable({ view }: { view: SessionView }) {
           {!view.offline && <span className="badge font-mono">{room.code}</span>}
           <div className="ml-auto flex items-center gap-1">
             <SpeedPicker compact />
+            {onCompact && (
+              <button className="btn-icon" onClick={onCompact} title={t("projector.compact")} aria-label={t("projector.compact")}>
+                <Minimize2 size={18} />
+              </button>
+            )}
             <button className="btn-icon sm:hidden" onClick={() => setSound(!sound)} aria-label={t("settings.sound")}>
               {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
@@ -114,7 +83,7 @@ export function GameTable({ view }: { view: SessionView }) {
               player={p}
               myId={myId}
               away={away(p.id)}
-              targetable={needsTarget && targets.includes(p.id)}
+              targetable={canTarget(p.id)}
               targeted={sel.target === p.id}
               onTarget={() => chooseTarget(p.id)}
             />
@@ -129,9 +98,9 @@ export function GameTable({ view }: { view: SessionView }) {
           <div
             data-testid="me"
             className={`relative mx-auto flex w-full max-w-3xl flex-col items-center gap-2 rounded-card border p-3 transition-colors ${
-              needsTarget && targets.includes(myId) ? "cursor-pointer border-accent bg-accent/5" : "border-transparent"
+              canTarget(myId) ? "cursor-pointer border-accent bg-accent/5" : "border-transparent"
             }`}
-            onClick={() => needsTarget && targets.includes(myId) && chooseTarget(myId)}
+            onClick={() => chooseTarget(myId)}
           >
             <div className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-1">
               <span className="flex items-center gap-2 font-semibold">
@@ -165,14 +134,14 @@ export function GameTable({ view }: { view: SessionView }) {
               myTurn={myTurn}
               selectedKind={selected?.kind ?? null}
               needsTarget={needsTarget}
-              noTarget={!!selected && CARDS[selected.kind].targets !== "none" && targets.length === 0}
+              noTarget={noTarget}
               target={sel.target}
               needsGuess={needsGuess}
               guess={sel.guess}
               ready={ready}
-              onGuess={(guess) => (playSound("click"), setSel({ ...sel, guess }))}
+              onGuess={guess}
               onPlay={play}
-              onCancel={() => setSel(EMPTY)}
+              onCancel={cancel}
               nameOf={(id) => playerName(room, id)}
             />
           </div>
@@ -183,25 +152,7 @@ export function GameTable({ view }: { view: SessionView }) {
 
       <SidePanel view={view} className="hidden w-80 shrink-0 lg:flex" />
 
-      <AnimatePresence>
-        {panelOpen && (
-          <motion.div className="fixed inset-0 z-40 flex justify-end bg-black/40 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPanelOpen(false)}>
-            <motion.div
-              className="flex h-full w-[min(22rem,92vw)] flex-col gap-2 bg-canvas p-3 shadow-overlay"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button className="btn-icon self-end" onClick={() => setPanelOpen(false)} aria-label={t("common.close")}>
-                <X size={18} />
-              </button>
-              <SidePanel view={view} className="flex-1" />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <PanelDrawer view={view} open={panelOpen} onClose={() => setPanelOpen(false)} />
 
       <AnimatePresence>
         {stageIdle && game.phase === "chancellor" && game.current === myId && me && (
@@ -224,7 +175,7 @@ export function GameTable({ view }: { view: SessionView }) {
   );
 }
 
-function CenterPiles({ game }: { game: GameState }) {
+export function CenterPiles({ game, big = false }: { game: GameState; big?: boolean }) {
   const t = useT();
   const top = game.deck.at(-1);
   const layers = Math.min(4, Math.max(0, game.deck.length - 1));
@@ -234,27 +185,27 @@ function CenterPiles({ game }: { game: GameState }) {
         <div className="relative">
           {Array.from({ length: layers }, (_, i) => (
             <div key={i} className="absolute inset-0" style={{ transform: `translate(${(layers - i) * 2}px, ${(layers - i) * 2}px)` }}>
-              <Card kind={null} size="md" />
+              <Card kind={null} size={big ? "lg" : "md"} />
             </div>
           ))}
-          {top ? <Card key={top.uid} uid={top.uid} kind={null} size="md" /> : <CardSlot size="md" />}
+          {top ? <Card key={top.uid} uid={top.uid} kind={null} size={big ? "lg" : "md"} /> : <CardSlot size={big ? "lg" : "md"} />}
         </div>
-        <span className="text-xs text-text-muted">
+        <span className={big ? "text-lg text-text-muted" : "text-xs text-text-muted"}>
           {t("game.deck")} · <span className="font-mono font-semibold text-text-secondary">{game.deck.length}</span>
         </span>
       </div>
       <div className="flex flex-col items-center gap-1">
-        {game.setAside ? <Card uid={game.setAside.uid} kind={null} size="sm" rotate={-6} /> : <CardSlot size="sm" />}
-        <span className="text-xs text-text-muted">{t("game.setAside")}</span>
+        {game.setAside ? <Card uid={game.setAside.uid} kind={null} size={big ? "md" : "sm"} rotate={-6} /> : <CardSlot size={big ? "md" : "sm"} />}
+        <span className={big ? "text-lg text-text-muted" : "text-xs text-text-muted"}>{t("game.setAside")}</span>
       </div>
       {game.faceUp.length > 0 && (
         <div className="flex flex-col items-center gap-1">
           <div className="flex gap-1">
             {game.faceUp.map((c) => (
-              <Card key={c.uid} uid={c.uid} kind={c.kind} size="sm" />
+              <Card key={c.uid} uid={c.uid} kind={c.kind} size={big ? "md" : "sm"} />
             ))}
           </div>
-          <span className="text-xs text-text-muted">{t("game.faceUp")}</span>
+          <span className={big ? "text-lg text-text-muted" : "text-xs text-text-muted"}>{t("game.faceUp")}</span>
         </div>
       )}
     </div>
@@ -278,7 +229,7 @@ interface ActionBarProps {
   nameOf: (id: string) => string;
 }
 
-function ActionBar(props: ActionBarProps) {
+export function ActionBar(props: ActionBarProps) {
   const t = useT();
   const { game, myId, myTurn, selectedKind, needsTarget, noTarget, target, needsGuess, guess, ready } = props;
   const me = game.players.find((p) => p.id === myId)!;

@@ -14,6 +14,8 @@ interface SeatProps {
   targetable: boolean;
   targeted: boolean;
   onTarget?: () => void;
+  /** Larger, for the shared screen read from across the room. */
+  big?: boolean;
 }
 
 /** Discards as a tight fan: the latest card on top. */
@@ -49,7 +51,7 @@ export function FavorRow({ count, max, size = 14 }: { count: number; max: number
   );
 }
 
-export function Seat({ game, player, myId, away, targetable, targeted, onTarget }: SeatProps) {
+export function Seat({ game, player, myId, away, targetable, targeted, onTarget, big = false }: SeatProps) {
   const t = useT();
   const isTurn = game.current === player.id && (game.phase === "turn" || game.phase === "chancellor");
   const known = knownCard(game, myId, player.id);
@@ -64,7 +66,7 @@ export function Seat({ game, player, myId, away, targetable, targeted, onTarget 
       tabIndex={targetable ? 0 : undefined}
       onKeyDown={targetable ? (e) => (e.key === "Enter" || e.key === " ") && onTarget?.() : undefined}
       animate={{ opacity: player.eliminated ? 0.55 : 1, scale: targeted ? 1.03 : 1 }}
-      className={`relative flex min-w-[9.5rem] flex-col gap-2 rounded-card border bg-surface/90 p-2.5 shadow-card transition-colors sm:min-w-[11rem] sm:p-3 ${
+      className={`relative flex flex-col gap-2 rounded-card border bg-surface/90 shadow-card transition-colors ${big ? "min-w-[15rem] p-4" : "min-w-[9.5rem] p-2.5 sm:min-w-[11rem] sm:p-3"} ${
         targetable ? "cursor-pointer border-accent hover:bg-surface-hover" : "border-border"
       } ${targeted ? "ring-2 ring-accent" : ""}`}
     >
@@ -84,10 +86,10 @@ export function Seat({ game, player, myId, away, targetable, targeted, onTarget 
         />
       )}
       <div className="flex items-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-pill text-xs font-bold text-white" style={{ background: color }}>
-          {player.isBot ? <Bot size={14} /> : player.name.slice(0, 1).toUpperCase()}
+        <span className={`grid shrink-0 place-items-center rounded-pill font-bold text-white ${big ? "h-10 w-10 text-base" : "h-7 w-7 text-xs"}`} style={{ background: color }}>
+          {player.isBot ? <Bot size={big ? 20 : 14} /> : player.name.slice(0, 1).toUpperCase()}
         </span>
-        <span className={`truncate text-sm font-semibold ${player.eliminated ? "line-through" : ""}`}>{player.name}</span>
+        <span className={`truncate font-semibold ${big ? "text-2xl" : "text-sm"} ${player.eliminated ? "line-through" : ""}`}>{player.name}</span>
         {away && <WifiOff size={14} className="shrink-0 text-warning" aria-label={t("game.autopilot")} />}
         <AnimatePresence>
           {player.protected && (
@@ -103,12 +105,12 @@ export function Seat({ game, player, myId, away, targetable, targeted, onTarget 
           )}
         </AnimatePresence>
       </div>
-      <FavorRow count={player.tokens} max={game.tokensToWin} size={12} />
+      <FavorRow count={player.tokens} max={game.tokensToWin} size={big ? 20 : 12} />
       <div className="flex items-end gap-3">
         <div className="flex gap-1">
           {player.hand.map((c) => (
             <div key={c.uid} className="relative">
-              <Card uid={c.uid} kind={known?.uid === c.uid ? known.kind : null} size="sm" />
+              <Card uid={c.uid} kind={known?.uid === c.uid ? known.kind : null} size={big ? "md" : "sm"} />
               {known?.uid === c.uid && (
                 <span className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-pill bg-accent text-accent-foreground shadow" title={t("game.youKnow")}>
                   <Eye size={12} />
@@ -116,9 +118,9 @@ export function Seat({ game, player, myId, away, targetable, targeted, onTarget 
               )}
             </div>
           ))}
-          {player.eliminated && <span className="self-center text-xs font-semibold uppercase tracking-wider text-danger">{t("game.eliminated")}</span>}
+          {player.eliminated && <span className={`self-center font-semibold ${big ? "text-base" : "text-xs"} uppercase tracking-wider text-danger`}>{t("game.eliminated")}</span>}
         </div>
-        <DiscardFan player={player} />
+        <DiscardFan player={player} size={big ? "sm" : "xs"} />
       </div>
     </motion.div>
   );

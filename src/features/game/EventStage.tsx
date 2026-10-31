@@ -17,8 +17,22 @@ const DURATION: Partial<Record<GameEvent["type"], number>> = { play: PLAY_STAGE_
  * Stages each new game event in the middle of the table, one after the other, with its sound.
  * Purely decorative: the table underneath is already up to date. Reports when it is idle so
  * round-end dialogs wait for the last play to be shown.
+ * `onlyMine`: a phone next to a shared screen only stages the plays that involve its player.
+ * `big`: the shared screen, read from across the room.
  */
-export function EventStage({ room, myId, onIdle }: { room: RoomSnapshot; myId: string; onIdle: (idle: boolean) => void }) {
+export function EventStage({
+  room,
+  myId,
+  onIdle,
+  onlyMine = false,
+  big = false,
+}: {
+  room: RoomSnapshot;
+  myId: string;
+  onIdle: (idle: boolean) => void;
+  onlyMine?: boolean;
+  big?: boolean;
+}) {
   const t = useT();
   const game = room.game!;
   const lastSeq = useRef(game.seq);
@@ -31,8 +45,9 @@ export function EventStage({ room, myId, onIdle }: { room: RoomSnapshot; myId: s
     const fresh = game.events.filter((e) => e.seq > lastSeq.current);
     if (fresh.length === 0) return;
     lastSeq.current = Math.max(...fresh.map((e) => e.seq));
-    setQueue((q) => [...q, ...fresh]);
-  }, [game.events]);
+    const shown = onlyMine ? fresh.filter((e) => e.type === "play" && [e.actor, e.target, e.eliminated].includes(myId)) : fresh;
+    if (shown.length) setQueue((q) => [...q, ...shown]);
+  }, [game.events, onlyMine, myId]);
 
   useEffect(() => {
     onIdle(!current && queue.length === 0);
@@ -52,21 +67,23 @@ export function EventStage({ room, myId, onIdle }: { room: RoomSnapshot; myId: s
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-      <AnimatePresence mode="wait">
-        {current?.type === "play" && <PlayStage key={current.seq} event={current} room={room} myId={myId} t={t} k={k} />}
-        {current?.type === "roundStart" && (
-          <motion.div
-            key={current.seq}
-            initial={{ opacity: 0, scale: 0.9, letterSpacing: "0.5em" }}
-            animate={{ opacity: 1, scale: 1, letterSpacing: "0.1em" }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.6 * k }}
-            className="display rounded-card bg-canvas/85 px-10 py-5 text-4xl font-semibold shadow-overlay backdrop-blur sm:text-5xl"
-          >
-            {t("game.round", { n: current.round })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className={big ? "scale-150" : undefined}>
+        <AnimatePresence mode="wait">
+          {current?.type === "play" && <PlayStage key={current.seq} event={current} room={room} myId={myId} t={t} k={k} />}
+          {current?.type === "roundStart" && (
+            <motion.div
+              key={current.seq}
+              initial={{ opacity: 0, scale: 0.9, letterSpacing: "0.5em" }}
+              animate={{ opacity: 1, scale: 1, letterSpacing: "0.1em" }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.6 * k }}
+              className="display rounded-card bg-canvas/85 px-10 py-5 text-4xl font-semibold shadow-overlay backdrop-blur sm:text-5xl"
+            >
+              {t("game.round", { n: current.round })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

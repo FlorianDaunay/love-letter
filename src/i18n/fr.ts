@@ -177,6 +177,22 @@ export const fr = {
   "rules.setupText": "Une carte est écartée face cachée à chaque manche. À deux joueurs, trois cartes de plus sont retirées face visible.",
   "rules.deck": "Les 21 cartes",
 
+  "projector.title": "Mode projecteur",
+  "projector.hint": "Un écran partagé (télé, projecteur) affiche la table pour tous. Chacun joue sur son téléphone.",
+  "projector.create": "Ouvrir l'écran partagé",
+  "projector.join": "Rejoignez la partie",
+  "projector.joinAt": "Sur votre téléphone, ouvrez",
+  "projector.orCode": "ou entrez le code",
+  "projector.noPlayers": "En attente des joueurs…",
+  "projector.turn": "Au tour de {player}",
+  "projector.chancellor": "{player} choisit les cartes du Chancelier",
+  "projector.fullscreen": "Plein écran",
+  "projector.screen": "Écran partagé",
+  "projector.watchScreen": "La partie se lance depuis l'écran partagé.",
+  "projector.compact": "Vue réduite",
+  "projector.full": "Vue complète",
+  "projector.discards": "Défausse",
+
   "common.close": "Fermer",
   "common.back": "Retour",
 } as const;

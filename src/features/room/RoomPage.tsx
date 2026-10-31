@@ -7,21 +7,26 @@ import { useProfile } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
 import { errorKey } from "@/ui/errors";
 import { useToasts } from "@/ui/Toasts";
+import { CompactTable } from "../game/CompactTable";
 import { GameTable } from "../game/GameTable";
+import { ProjectorLobby } from "../projector/ProjectorLobby";
+import { ProjectorTable } from "../projector/ProjectorTable";
 import { Lobby } from "./Lobby";
 
-export function RoomPage() {
+/** `screen`: the shared screen of a projector room (no seat). */
+export function RoomPage({ screen = false }: { screen?: boolean }) {
   const t = useT();
   const code = normalizeCode(useParams().code ?? "");
   const view = useSessionStore((s) => s.view);
   const error = useSessionStore((s) => s.error);
   const push = useToasts((s) => s.push);
+  const [full, setFull] = useState(false);
 
   useEffect(() => {
     if (error) push(t(error.key), "danger");
   }, [error, push, t]);
 
-  if (!view?.room || view.room.code !== code) return <JoinForm code={code} />;
+  if (!view?.room || view.room.code !== code) return <JoinForm code={code} screen={screen} />;
   if (view.status === "closed") {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
@@ -40,13 +45,25 @@ export function RoomPage() {
           {t("game.migrating")}
         </div>
       )}
-      {view.room.game ? <GameTable view={view} /> : <Lobby view={view} />}
+      {view.spectator ? (
+        view.room.game ? (
+          <ProjectorTable view={view} />
+        ) : (
+          <ProjectorLobby view={view} />
+        )
+      ) : !view.room.game ? (
+        <Lobby view={view} />
+      ) : view.room.settings.projector && !full ? (
+        <CompactTable view={view} onFull={() => setFull(true)} />
+      ) : (
+        <GameTable view={view} onCompact={view.room.settings.projector ? () => setFull(false) : undefined} />
+      )}
     </>
   );
 }
 
 /** Opened from an invite link or after a reload: join (or rejoin) by code. */
-function JoinForm({ code }: { code: string }) {
+function JoinForm({ code, screen }: { code: string; screen: boolean }) {
   const t = useT();
   const navigate = useNavigate();
   const { name, setName } = useProfile();
@@ -61,8 +78,8 @@ function JoinForm({ code }: { code: string }) {
     setBusy(true);
     setError(null);
     try {
-      await joinRoom(code, pw);
-      navigate(`/room/${code}`, { replace: true });
+      await joinRoom(code, pw, screen);
+      navigate(`/${screen ? "screen" : "room"}/${code}`, { replace: true });
     } catch (e) {
       const key = errorKey(e);
       if (key === "reject.password") setNeedPassword(true);
@@ -74,26 +91,30 @@ function JoinForm({ code }: { code: string }) {
 
   // With a name already known, try right away (no password): rejoining after a reload is instant.
   useEffect(() => {
-    if (tried.current || !name.trim()) return;
+    if (tried.current || (!name.trim() && !screen)) return;
     tried.current = true;
     void attempt("");
   }, []);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return setError("home.needName");
+    if (!name.trim() && !screen) return setError("home.needName");
     void attempt(password);
   };
 
   return (
     <div className="mx-auto w-full max-w-sm px-4 py-12">
       <form className="card flex flex-col gap-3 p-6" onSubmit={submit}>
-        <h1 className="display text-3xl font-semibold">{t("home.join")}</h1>
+        <h1 className="display text-3xl font-semibold">{t(screen ? "projector.screen" : "home.join")}</h1>
         <p className="font-mono text-xl tracking-[0.3em] text-accent">{code}</p>
-        <label className="label" htmlFor="join-name">
-          {t("home.name")}
-        </label>
-        <input id="join-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} />
+        {!screen && (
+          <>
+            <label className="label" htmlFor="join-name">
+              {t("home.name")}
+            </label>
+            <input id="join-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} />
+          </>
+        )}
         {needPassword && <input className="input" type="password" autoFocus placeholder={t("home.password")} value={password} onChange={(e) => setPassword(e.target.value)} />}
         {error && <p className="text-sm text-danger">{t(error)}</p>}
         <button className="btn btn-primary" disabled={busy}>

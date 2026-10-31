@@ -98,7 +98,7 @@ export function Lobby({ view }: { view: SessionView }) {
               </button>
             </>
           ) : (
-            <p className="text-sm text-text-secondary">{t("lobby.waitHost")}</p>
+            <p className="text-sm text-text-secondary">{t(room.settings.projector ? "projector.watchScreen" : "lobby.waitHost")}</p>
           )}
           <button
             className="btn btn-ghost ml-auto"

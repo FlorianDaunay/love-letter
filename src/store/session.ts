@@ -10,8 +10,8 @@ interface SessionState {
   view: SessionView | null;
   /** Last action error (i18n key) with a counter so the same error can show twice. */
   error: { key: string; n: number } | null;
-  hostRoom: (options: { password?: string; offline?: boolean; resume?: GameState; code?: string }) => Promise<void>;
-  joinRoom: (code: string, password: string) => Promise<void>;
+  hostRoom: (options: { password?: string; offline?: boolean; resume?: GameState; code?: string; spectator?: boolean }) => Promise<void>;
+  joinRoom: (code: string, password: string, spectator?: boolean) => Promise<void>;
   leave: () => void;
   dispatch: (action: GameAction) => void;
 }
@@ -56,10 +56,10 @@ export const useSessionStore = create<SessionState>()((_set, get) => ({
     gameKey = "";
     attach(await Session.host({ profile: profile(), ...options }));
   },
-  joinRoom: async (code, password) => {
+  joinRoom: async (code, password, spectator) => {
     get().session?.leave();
     gameKey = "";
-    attach(await Session.join(code, password, profile()));
+    attach(await Session.join(code, password, profile(), spectator));
   },
   leave: () => {
     get().session?.leave();

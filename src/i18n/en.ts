@@ -179,6 +179,22 @@ export const en: Record<MessageKey, string> = {
   "rules.setupText": "One card is set aside face down each round. With two players, three more are removed face up.",
   "rules.deck": "The 21 cards",
 
+  "projector.title": "Projector mode",
+  "projector.hint": "A shared screen (TV, projector) shows the table to everyone. Each player plays on their phone.",
+  "projector.create": "Open the shared screen",
+  "projector.join": "Join the game",
+  "projector.joinAt": "On your phone, open",
+  "projector.orCode": "or enter the code",
+  "projector.noPlayers": "Waiting for players…",
+  "projector.turn": "{player}'s turn",
+  "projector.chancellor": "{player} is choosing the Chancellor's cards",
+  "projector.fullscreen": "Full screen",
+  "projector.screen": "Shared screen",
+  "projector.watchScreen": "The game is started from the shared screen.",
+  "projector.compact": "Compact view",
+  "projector.full": "Full view",
+  "projector.discards": "Discards",
+
   "common.close": "Close",
   "common.back": "Back",
 };

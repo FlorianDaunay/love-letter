@@ -31,6 +31,8 @@ export interface SessionView {
   myId: string;
   isHost: boolean;
   offline: boolean;
+  /** Watching without a seat (the shared screen of a projector room). */
+  spectator: boolean;
   /** i18n key explaining why the session closed. */
   closeReason: string | null;
 }
@@ -49,12 +51,15 @@ interface HostOptions {
   resume?: GameState;
   /** Keep a given code (resume). */
   code?: string;
+  /** Host without a seat: the shared screen of a projector room. */
+  spectator?: boolean;
 }
 
 interface Client {
   conn: DataConnection;
   playerId: string;
   lastSeen: number;
+  spectator: boolean;
 }
 
 const FATAL: RejectReason[] = ["password", "kicked", "full", "started", "version"];
@@ -72,6 +77,7 @@ export class Session {
   private status: SessionStatus = "connecting";
   private closeReason: string | null = null;
   private offline = false;
+  private spectator = false;
   private peer: Peer | null = null;
   private hostConn: DataConnection | null = null;
   private clients = new Map<DataConnection, Client>();
@@ -94,11 +100,14 @@ export class Session {
     const session = new Session(options.profile);
     session.role = "host";
     session.offline = !!options.offline;
+    session.spectator = !!options.spectator && !options.resume;
     const code = options.code ?? randomCode();
     session.passwordHash = await hashPassword(code, options.password ?? "");
     const lobby: LobbyPlayer[] = options.resume
       ? options.resume.players.map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: p.isBot }))
-      : [{ id: options.profile.playerId, name: options.profile.name, isBot: false, connected: true }];
+      : session.spectator
+        ? []
+        : [{ id: options.profile.playerId, name: options.profile.name, isBot: false, connected: true }];
     if (options.resume) {
       // Take back my seat: same id, else same name, else the first human seat.
       const seat =
@@ -114,7 +123,7 @@ export class Session {
       epoch: 0,
       hostId: session.myId,
       passwordHash: session.passwordHash,
-      settings: { maxPlayers: MAX_PLAYERS },
+      settings: { maxPlayers: MAX_PLAYERS, projector: session.spectator },
       lobby,
       game: options.resume ? structuredClone(options.resume) : null,
       chat: [],
@@ -133,8 +142,9 @@ export class Session {
     return session;
   }
 
-  static async join(code: string, password: string, profile: Profile): Promise<Session> {
+  static async join(code: string, password: string, profile: Profile, spectator = false): Promise<Session> {
     const session = new Session(profile);
+    session.spectator = spectator;
     session.passwordHash = await hashPassword(code, password);
     session.peer = await openPeer();
     let lastError = "notFound";
@@ -178,6 +188,7 @@ export class Session {
       myId: this.myId,
       isHost: this.role === "host",
       offline: this.offline,
+      spectator: this.spectator,
       closeReason: this.closeReason,
     };
   }
@@ -244,13 +255,14 @@ export class Session {
   // ---------------------------------------------------------------- player API
 
   dispatch(action: GameAction) {
+    if (this.spectator) return;
     if (this.role === "client") return this.send({ t: "action", action });
     this.applyAs(this.myId, action);
   }
 
   chat(text: string) {
     const clean = text.trim().slice(0, 300);
-    if (!clean) return;
+    if (!clean || this.spectator) return;
     if (this.role === "client") return this.send({ t: "chat", text: clean });
     this.pushChat(this.myId, clean);
   }
@@ -316,7 +328,7 @@ export class Session {
     this.clients.delete(conn);
     if (!client || !this.room) return;
     // The same player may already have reconnected on another channel.
-    if ([...this.clients.values()].some((c) => c.playerId === client.playerId)) return;
+    if (client.spectator || [...this.clients.values()].some((c) => c.playerId === client.playerId)) return;
     this.setConnected(client.playerId, false);
     this.broadcast();
   }
@@ -337,6 +349,13 @@ export class Session {
 
     if (msg.t === "hello") return this.onHello(conn, msg);
     if (!client) return;
+    if (client.spectator) {
+      if (msg.t === "leave") {
+        this.clients.delete(conn);
+        conn.close();
+      }
+      return;
+    }
     switch (msg.t) {
       case "action":
         this.applyAs(client.playerId, msg.action, conn);
@@ -364,6 +383,13 @@ export class Session {
     };
     if (msg.version !== PROTOCOL_VERSION) return reject("version");
     if ((room.passwordHash ?? null) !== (msg.passwordHash ?? null)) return reject("password");
+    if (msg.spectator) {
+      // A shared screen: no seat, it only receives snapshots.
+      const id = msg.playerId && msg.playerId !== this.myId ? String(msg.playerId) : `s-${uid()}`;
+      this.clients.set(conn, { conn, playerId: id, lastSeen: Date.now(), spectator: true });
+      this.sendTo(conn, { t: "welcome", playerId: id, room });
+      return;
+    }
     const name = String(msg.name ?? "").trim().slice(0, 24) || "?";
 
     // Reconnect by id, then by name on a free human seat, then take a new seat before the game.
@@ -380,11 +406,11 @@ export class Session {
       room.lobby.push(seat);
     }
     // Drop an older channel of the same player.
-    for (const [other, c] of this.clients) if (c.playerId === seat.id && other !== conn) this.clients.delete(other);
+    for (const [other, c] of this.clients) if (c.playerId === seat.id && !c.spectator && other !== conn) this.clients.delete(other);
     seat.name = name;
     if (room.game) for (const p of room.game.players) if (p.id === seat.id) p.name = name;
     this.setConnected(seat.id, true);
-    this.clients.set(conn, { conn, playerId: seat.id, lastSeen: Date.now() });
+    this.clients.set(conn, { conn, playerId: seat.id, lastSeen: Date.now(), spectator: false });
     this.sendTo(conn, { t: "welcome", playerId: seat.id, room });
     this.broadcast();
   }
@@ -512,6 +538,7 @@ export class Session {
         playerId: this.myId,
         name: this.profile.name,
         passwordHash: this.passwordHash,
+        spectator: this.spectator,
       } satisfies ClientMessage);
     });
   }

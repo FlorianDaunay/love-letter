@@ -1,3 +1,5 @@
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CARDS, CARD_KINDS, unseenCounts } from "@/core/game";
 import type { SessionView } from "@/net/session";
@@ -11,7 +13,7 @@ type Tab = "log" | "cards" | "chat";
 export function SidePanel({ view, className = "" }: { view: SessionView; className?: string }) {
   const t = useT();
   const [tab, setTab] = useState<Tab>("log");
-  const tabs: Tab[] = view.offline ? ["log", "cards"] : ["log", "cards", "chat"];
+  const tabs: Tab[] = view.offline || view.spectator ? ["log", "cards"] : ["log", "cards", "chat"];
   return (
     <div className={`flex min-h-0 flex-col gap-2 ${className}`}>
       <div className="flex gap-1 rounded-control border border-border bg-surface p-1" role="tablist">
@@ -31,6 +33,32 @@ export function SidePanel({ view, className = "" }: { view: SessionView; classNa
       {tab === "cards" && <CardsList view={view} />}
       {tab === "chat" && <ChatPanel view={view} className="flex-1" />}
     </div>
+  );
+}
+
+/** The side panel as a drawer, for screens too narrow to keep it open. */
+export function PanelDrawer({ view, open, onClose, className = "lg:hidden" }: { view: SessionView; open: boolean; onClose: () => void; className?: string }) {
+  const t = useT();
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div className={`fixed inset-0 z-40 flex justify-end bg-black/40 ${className}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+          <motion.div
+            className="flex h-full w-[min(22rem,92vw)] flex-col gap-2 bg-canvas p-3 shadow-overlay"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="btn-icon self-end" onClick={onClose} aria-label={t("common.close")}>
+              <X size={18} />
+            </button>
+            <SidePanel view={view} className="flex-1" />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

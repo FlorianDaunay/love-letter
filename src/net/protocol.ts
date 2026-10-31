@@ -1,7 +1,7 @@
 import type { GameAction, GameState } from "@/core/game";
 
 /** Bump on any incompatible change to messages or to the snapshot: mismatched peers are rejected. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export interface LobbyPlayer {
   id: string;
@@ -19,6 +19,8 @@ export interface ChatMessage {
 
 export interface RoomSettings {
   maxPlayers: number;
+  /** A shared screen shows the table; players use a compact view on their own device. */
+  projector?: boolean;
 }
 
 /** Everything about a room. Every peer holds it, so anyone can take over as host. */
@@ -36,7 +38,7 @@ export interface RoomSnapshot {
 export type RejectReason = "password" | "full" | "started" | "version" | "kicked";
 
 export type ClientMessage =
-  | { t: "hello"; version: number; playerId: string; name: string; passwordHash: string | null }
+  | { t: "hello"; version: number; playerId: string; name: string; passwordHash: string | null; spectator?: boolean }
   | { t: "action"; action: GameAction }
   | { t: "chat"; text: string }
   | { t: "ping" }

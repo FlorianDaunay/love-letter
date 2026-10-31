@@ -13,7 +13,8 @@ Web version of Love Letter (2019 edition: 21 cards, values 0-9, 2-6 players). St
 - `src/core/game/`: pure engine. `applyAction(state, actorId, action, now)` is the only entry point; seeded RNG in state; `events[]` (with `seq`) drive animations/sounds; `knowledge` = what Priest/Baron/King revealed; `bot.ts` = AI (uses only seat-visible info).
 - `src/net/`: `session.ts` (host/client, heartbeat, epoch migration, bots and autopilot run on host), `protocol.ts` (bump `PROTOCOL_VERSION` on incompatible change).
 - `src/store/`: profile (playerId in sessionStorage = one player per tab), saves (autosave per game), session.
-- `src/features/`: home, room (lobby + join), game (table, event stage, modals), rules, saves, settings.
+- `src/features/`: home, room (lobby + join), game (table, compact table for projector rooms, event stage, modals), projector (shared screen: lobby + table), rules, saves, settings.
+- Projector mode: the shared screen hosts (or rejoins at `#/screen/CODE`) as a spectator (`hello.spectator`, no lobby seat, never a migration candidate); `settings.projector` makes players' devices default to `CompactTable`.
 - `src/ui/CardArt.tsx`: all card art is hand-written SVG; fixed illustration palette in `src/ui/palette.ts`.
 - `src/audio/sound.ts`: all sounds synthesized with WebAudio (no assets).
 - `src/i18n/`: `fr.ts` is the key source; `en.ts` must match (typed).
